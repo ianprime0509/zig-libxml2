@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
     const with_ftp = b.option(bool, "ftp", "Enable FTP support") orelse false;
     // TODO: --with-history (depends on readline)
     // TODO: --with-readline
-    const with_html = b.option(bool, "html", "Enable HTML parser") orelse !minimal;
+    var with_html = b.option(bool, "html", "Enable HTML parser") orelse !minimal;
     const with_http = b.option(bool, "http", "Enable HTTP support") orelse !minimal;
     // TODO: --with-iconv
     // TODO: --with-icu
@@ -84,6 +84,16 @@ pub fn build(b: *std.Build) void {
         with_tree = true;
     }
     if (with_c14n or with_schematron or with_xinclude or with_xptr) {
+        with_xpath = true;
+    }
+
+    // libxslt may also require certain libxml2 features to be enabled if it is
+    // desired.
+    const enable_libxslt = b.option(bool, "xslt", "Enable libxslt") orelse false;
+    if (enable_libxslt) {
+        with_html = true;
+        with_output = true;
+        with_tree = true;
         with_xpath = true;
     }
 
@@ -308,7 +318,6 @@ pub fn build(b: *std.Build) void {
         .flags = libxml2_cflags,
     });
 
-    const enable_libxslt = b.option(bool, "xslt", "Enable libxslt") orelse false;
     if (enable_libxslt) libxslt: {
         const libxslt_upstream = b.lazyDependency("libxslt", .{}) orelse break :libxslt;
 

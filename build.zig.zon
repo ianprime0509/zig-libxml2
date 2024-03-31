@@ -1,0 +1,21 @@
+.{
+    .name = "zig-libxml2",
+    .version = "0.0.0",
+    .paths = .{
+        "LICENSE",
+        "README.md",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .libxml2 = .{
+            .url = "https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.12.6/libxml2-v2.12.6.tar.gz",
+            .hash = "1220aa400cd479a884390db9cf4a09c03899e5b370a5ab35614ac735834a27f3286d",
+        },
+        .libxslt = .{
+            .url = "https://gitlab.gnome.org/GNOME/libxslt/-/archive/v1.1.39/libxslt-v1.1.39.tar.gz",
+            .hash = "12201415880e4a93f167de007d131b64283cdd95ddb05aebd25595cf74ce9a14d0b0",
+            .lazy = true,
+        },
+    },
+}

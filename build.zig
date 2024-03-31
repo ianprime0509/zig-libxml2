@@ -261,22 +261,51 @@ pub fn build(b: *std.Build) void {
     if (with_xptr) {
         libxml2_sources.appendSlice(&.{ "xlink.c", "xpointer.c" }) catch @panic("OOM");
     }
+    const libxml2_cflags: []const []const u8 = &.{
+        "-pedantic",
+        "-Wall",
+        "-Wextra",
+        "-Wshadow",
+        "-Wpointer-arith",
+        "-Wcast-align",
+        "-Wwrite-strings",
+        "-Wstrict-prototypes",
+        "-Wmissing-prototypes",
+        "-Wno-long-long",
+        "-Wno-format-extra-args",
+    };
     libxml2.addCSourceFiles(.{
         .root = libxml2_upstream.path("."),
         .files = libxml2_sources.items,
-        .flags = &.{
-            "-pedantic",
-            "-Wall",
-            "-Wextra",
-            "-Wshadow",
-            "-Wpointer-arith",
-            "-Wcast-align",
-            "-Wwrite-strings",
-            "-Wstrict-prototypes",
-            "-Wmissing-prototypes",
-            "-Wno-long-long",
-            "-Wno-format-extra-args",
-        },
+        .flags = libxml2_cflags,
+    });
+
+    const xmllint = b.addExecutable(.{
+        .name = "xmllint",
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    b.installArtifact(xmllint);
+    xmllint.linkLibrary(libxml2);
+    xmllint.addConfigHeader(libxml2_config_h);
+    xmllint.addCSourceFile(.{
+        .file = libxml2_upstream.path("xmllint.c"),
+        .flags = libxml2_cflags,
+    });
+
+    const xmlcatalog = b.addExecutable(.{
+        .name = "xmlcatalog",
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    b.installArtifact(xmlcatalog);
+    xmlcatalog.linkLibrary(libxml2);
+    xmlcatalog.addConfigHeader(libxml2_config_h);
+    xmlcatalog.addCSourceFile(.{
+        .file = libxml2_upstream.path("xmlcatalog.c"),
+        .flags = libxml2_cflags,
     });
 
     const enable_libxslt = b.option(bool, "xslt", "Enable libxslt") orelse false;
@@ -357,6 +386,20 @@ pub fn build(b: *std.Build) void {
         libxslt.installConfigHeader(libxslt_xsltconfig_h, .{});
 
         // See libxslt's Makefile.am for which sources are included.
+        const libxslt_cflags: []const []const u8 = &.{
+            "-Wall",
+            "-Wextra",
+            "-Wshadow",
+            "-Wpointer-arith",
+            "-Wcast-align",
+            "-Wwrite-strings",
+            "-Waggregate-return",
+            "-Wstrict-prototypes",
+            "-Wmissing-prototypes",
+            "-Wnested-externs",
+            "-Winline",
+            "-Wredundant-decls",
+        };
         libxslt.addCSourceFiles(.{
             .root = libxslt_upstream.path("libxslt"),
             .files = &.{
@@ -380,20 +423,7 @@ pub fn build(b: *std.Build) void {
                 "transform.c",
                 "security.c",
             },
-            .flags = &.{
-                "-Wall",
-                "-Wextra",
-                "-Wshadow",
-                "-Wpointer-arith",
-                "-Wcast-align",
-                "-Wwrite-strings",
-                "-Waggregate-return",
-                "-Wstrict-prototypes",
-                "-Wmissing-prototypes",
-                "-Wnested-externs",
-                "-Winline",
-                "-Wredundant-decls",
-            },
+            .flags = libxslt_cflags,
         });
 
         const libexslt = b.addStaticLibrary(.{
@@ -441,20 +471,23 @@ pub fn build(b: *std.Build) void {
                 "saxon.c",
                 "dynamic.c",
             },
-            .flags = &.{
-                "-Wall",
-                "-Wextra",
-                "-Wshadow",
-                "-Wpointer-arith",
-                "-Wcast-align",
-                "-Wwrite-strings",
-                "-Waggregate-return",
-                "-Wstrict-prototypes",
-                "-Wmissing-prototypes",
-                "-Wnested-externs",
-                "-Winline",
-                "-Wredundant-decls",
-            },
+            .flags = libxslt_cflags,
+        });
+
+        const xsltproc = b.addExecutable(.{
+            .name = "xsltproc",
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        });
+        b.installArtifact(xsltproc);
+        xsltproc.linkLibrary(libxml2);
+        xsltproc.linkLibrary(libxslt);
+        xsltproc.linkLibrary(libexslt);
+        xsltproc.addConfigHeader(libxslt_config_h);
+        xsltproc.addCSourceFile(.{
+            .file = libxslt_upstream.path("xsltproc/xsltproc.c"),
+            .flags = libxslt_cflags,
         });
     }
 }

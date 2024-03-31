@@ -1,14 +1,27 @@
 const std = @import("std");
 
 pub const libxml2_version: std.SemanticVersion = .{ .major = 2, .minor = 12, .patch = 6 };
-pub const libxml2_version_string = std.fmt.comptimePrint("{}.{}.{}", .{ libxml2_version.major, libxml2_version.minor, libxml2_version.patch });
-pub const libxml2_version_number = std.fmt.comptimePrint("{}{:0>2}{:0>2}", .{ libxml2_version.major, libxml2_version.minor, libxml2_version.patch });
+pub const libxslt_version: std.SemanticVersion = .{ .major = 1, .minor = 1, .patch = 39 };
+pub const libexslt_version: std.SemanticVersion = .{ .major = 0, .minor = 8, .patch = 21 };
+
+fn versionString(comptime v: std.SemanticVersion) []const u8 {
+    return std.fmt.comptimePrint("{}.{}.{}", .{ v.major, v.minor, v.patch });
+}
+
+fn versionNumber(comptime v: std.SemanticVersion) []const u8 {
+    return std.mem.trimLeft(u8, std.fmt.comptimePrint("{}{:0>2}{:0>2}", .{ v.major, v.minor, v.patch }), "0");
+}
+
+fn versionExtra(comptime v: std.SemanticVersion) []const u8 {
+    return if (v.pre) |pre| std.fmt.comptimePrint("-{s}", .{pre}) else "";
+}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const libxml2_upstream = b.dependency("libxml2", .{});
+
     const libxml2 = b.addStaticLibrary(.{
         .name = "xml2",
         .target = target,
@@ -124,7 +137,6 @@ pub fn build(b: *std.Build) void {
         .HAVE___VA_COPY = true,
         .SUPPORT_IP6 = false,
         .VA_LIST_IS_ARRAY = true,
-        .VERSION = libxml2_version_string,
         .XML_SOCKLEN_T = "socklen_t",
         .XML_THREAD_LOCAL = null,
         ._UINT32_T = null,
@@ -135,9 +147,9 @@ pub fn build(b: *std.Build) void {
         .style = .{ .cmake = libxml2_upstream.path("include/libxml/xmlversion.h.in") },
         .include_path = "libxml/xmlversion.h",
     }, .{
-        .VERSION = libxml2_version_string,
-        .LIBXML_VERSION_NUMBER = libxml2_version_number,
-        .LIBXML_VERSION_EXTRA = "",
+        .VERSION = versionString(libxml2_version),
+        .LIBXML_VERSION_NUMBER = versionNumber(libxml2_version),
+        .LIBXML_VERSION_EXTRA = versionExtra(libxml2_version),
         .WITH_TRIO = false,
         .WITH_THREADS = with_threads,
         .WITH_THREAD_ALLOC = false,
@@ -270,7 +282,179 @@ pub fn build(b: *std.Build) void {
     const enable_libxslt = b.option(bool, "xslt", "Enable libxslt") orelse false;
     if (enable_libxslt) libxslt: {
         const libxslt_upstream = b.lazyDependency("libxslt", .{}) orelse break :libxslt;
-        _ = libxslt_upstream;
-        // TODO
+
+        const libxslt = b.addStaticLibrary(.{
+            .name = "xslt",
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        });
+        b.installArtifact(libxslt);
+        libxslt.linkLibrary(libxml2);
+
+        // Options and defaults are the same as they are in libxslt's configure.ac.
+        // TODO: --with-crypto
+        // TODO: --with-python
+        const with_xslt_debug = b.option(bool, "xslt-debug", "Enable libxslt debugging code") orelse with_debug;
+        const with_xslt_mem_debug = b.option(bool, "xslt-mem-debug", "Enable libxslt memory debugging module") orelse with_mem_debug;
+        const with_xslt_debugger = b.option(bool, "xslt-debugger", "Enable libxslt debugging support") orelse !minimal;
+        const with_xslt_profiler = b.option(bool, "xslt-profiler", "Enable libxslt profiling support") orelse !minimal;
+
+        libxslt.addIncludePath(libxslt_upstream.path("libxslt"));
+        libxslt.installHeadersDirectoryOptions(.{
+            .source_dir = libxslt_upstream.path("libxslt"),
+            .install_dir = .header,
+            .install_subdir = "libxslt",
+            .include_extensions = &.{".h"},
+        });
+        // Using the the CMake version of config.h here is more convenient than
+        // trying to figure out all the possible defines Autotools is trying to
+        // populate, even though the Autotools build is used as the canonical
+        // reference for this project.
+        // TODO: some of these values will differ by system, especially for Windows.
+        // The current configuration was established based on my Linux system.
+        const libxslt_config_h = b.addConfigHeader(.{
+            .style = .{ .cmake = libxslt_upstream.path("config.h.cmake.in") },
+        }, .{
+            .HAVE_CLOCK_GETTIME = true,
+            .HAVE_FTIME = true,
+            .HAVE_GCRYPT = false,
+            .HAVE_GETTIMEOFDAY = true,
+            .HAVE_GMTIME_R = true,
+            .HAVE_LIBPTHREAD = false,
+            .HAVE_LOCALE_H = true,
+            .HAVE_LOCALTIME_R = true,
+            .HAVE_PTHREAD_H = false,
+            .HAVE_SNPRINTF = true,
+            .HAVE_STAT = true,
+            .HAVE_STRXFRM_L = true,
+            .HAVE_SYS_SELECT_H = true,
+            .HAVE_SYS_STAT_H = true,
+            .HAVE_SYS_TIMEB_H = true,
+            .HAVE_SYS_TIME_H = true,
+            .HAVE_SYS_TYPES_H = true,
+            .HAVE_UNISTD_H = true,
+            .HAVE_VSNPRINTF = true,
+            .HAVE_XLOCALE_H = false,
+            .HAVE__STAT = false,
+        });
+        libxslt.addConfigHeader(libxslt_config_h);
+        const libxslt_xsltconfig_h = b.addConfigHeader(.{
+            .style = .{ .cmake = libxslt_upstream.path("libxslt/xsltconfig.h.in") },
+            .include_path = "libxslt/xsltconfig.h",
+        }, .{
+            .VERSION = versionString(libxslt_version),
+            .LIBXSLT_VERSION_NUMBER = versionNumber(libxslt_version),
+            .LIBXSLT_VERSION_EXTRA = versionExtra(libxslt_version),
+            .WITH_XSLT_DEBUG = with_xslt_debug,
+            .WITH_MEM_DEBUG = with_xslt_mem_debug,
+            .WITH_TRIO = false,
+            .WITH_DEBUGGER = with_xslt_debugger,
+            .WITH_PROFILER = with_xslt_profiler,
+            .WITH_MODULES = with_modules,
+        });
+        libxslt.addConfigHeader(libxslt_xsltconfig_h);
+        libxslt.installConfigHeader(libxslt_xsltconfig_h, .{});
+
+        // See libxslt's Makefile.am for which sources are included.
+        libxslt.addCSourceFiles(.{
+            .root = libxslt_upstream.path("libxslt"),
+            .files = &.{
+                "attrvt.c",
+                "xslt.c",
+                "xsltlocale.c",
+                "xsltutils.c",
+                "pattern.c",
+                "templates.c",
+                "variables.c",
+                "keys.c",
+                "numbers.c",
+                "extensions.c",
+                "extra.c",
+                "functions.c",
+                "namespaces.c",
+                "imports.c",
+                "attributes.c",
+                "documents.c",
+                "preproc.c",
+                "transform.c",
+                "security.c",
+            },
+            .flags = &.{
+                "-Wall",
+                "-Wextra",
+                "-Wshadow",
+                "-Wpointer-arith",
+                "-Wcast-align",
+                "-Wwrite-strings",
+                "-Waggregate-return",
+                "-Wstrict-prototypes",
+                "-Wmissing-prototypes",
+                "-Wnested-externs",
+                "-Winline",
+                "-Wredundant-decls",
+            },
+        });
+
+        const libexslt = b.addStaticLibrary(.{
+            .name = "exslt",
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        });
+        b.installArtifact(libexslt);
+        libexslt.linkLibrary(libxml2);
+        libexslt.linkLibrary(libxslt);
+
+        libexslt.addIncludePath(libxslt_upstream.path("libexslt"));
+        libexslt.installHeadersDirectoryOptions(.{
+            .source_dir = libxslt_upstream.path("libexslt"),
+            .install_dir = .header,
+            .install_subdir = "libexslt",
+            .include_extensions = &.{".h"},
+        });
+        libexslt.addConfigHeader(libxslt_config_h);
+        const libexslt_exsltconfig_h = b.addConfigHeader(.{
+            .style = .{ .cmake = libxslt_upstream.path("libexslt/exsltconfig.h.in") },
+            .include_path = "libexslt/exsltconfig.h",
+        }, .{
+            .LIBEXSLT_VERSION = versionString(libexslt_version),
+            .LIBEXSLT_VERSION_NUMBER = versionNumber(libexslt_version),
+            .LIBEXSLT_VERSION_EXTRA = versionExtra(libexslt_version),
+            .WITH_CRYPTO = false,
+        });
+        libexslt.addConfigHeader(libexslt_exsltconfig_h);
+        libexslt.installConfigHeader(libexslt_exsltconfig_h, .{});
+
+        // See libexslt's Makefile.am for which sources are included.
+        libexslt.addCSourceFiles(.{
+            .root = libxslt_upstream.path("libexslt"),
+            .files = &.{
+                "exslt.c",
+                "common.c",
+                "crypto.c",
+                "math.c",
+                "sets.c",
+                "functions.c",
+                "strings.c",
+                "date.c",
+                "saxon.c",
+                "dynamic.c",
+            },
+            .flags = &.{
+                "-Wall",
+                "-Wextra",
+                "-Wshadow",
+                "-Wpointer-arith",
+                "-Wcast-align",
+                "-Wwrite-strings",
+                "-Waggregate-return",
+                "-Wstrict-prototypes",
+                "-Wmissing-prototypes",
+                "-Wnested-externs",
+                "-Winline",
+                "-Wredundant-decls",
+            },
+        });
     }
 }

@@ -98,10 +98,7 @@ pub fn build(b: *std.Build) void {
     }
 
     libxml2.addIncludePath(libxml2_upstream.path("include"));
-    libxml2.installHeadersDirectoryOptions(.{
-        .source_dir = libxml2_upstream.path("include/libxml"),
-        .install_dir = .header,
-        .install_subdir = "libxml",
+    libxml2.installHeadersDirectory(libxml2_upstream.path("include/libxml"), "libxml", .{
         .include_extensions = &.{".h"},
     });
     // Using the the CMake version of config.h here is more convenient than
@@ -195,7 +192,7 @@ pub fn build(b: *std.Build) void {
         .WITH_LZMA = false,
     });
     libxml2.addConfigHeader(libxml2_xmlversion_h);
-    libxml2.installConfigHeader(libxml2_xmlversion_h, .{});
+    libxml2.installConfigHeader(libxml2_xmlversion_h);
 
     // See libxml2's Makefile.am for which sources are included.
     var libxml2_sources = std.ArrayList([]const u8).init(b.allocator);
@@ -338,11 +335,8 @@ pub fn build(b: *std.Build) void {
         const with_xslt_debugger = b.option(bool, "xslt-debugger", "Enable libxslt debugging support") orelse !minimal;
         const with_xslt_profiler = b.option(bool, "xslt-profiler", "Enable libxslt profiling support") orelse !minimal;
 
-        libxslt.addIncludePath(libxslt_upstream.path("libxslt"));
-        libxslt.installHeadersDirectoryOptions(.{
-            .source_dir = libxslt_upstream.path("libxslt"),
-            .install_dir = .header,
-            .install_subdir = "libxslt",
+        libxslt.addIncludePath(libxslt_upstream.path("."));
+        libxslt.installHeadersDirectory(libxslt_upstream.path("libxslt"), "libxslt", .{
             .include_extensions = &.{".h"},
         });
         // Using the the CMake version of config.h here is more convenient than
@@ -392,7 +386,7 @@ pub fn build(b: *std.Build) void {
             .WITH_MODULES = with_modules,
         });
         libxslt.addConfigHeader(libxslt_xsltconfig_h);
-        libxslt.installConfigHeader(libxslt_xsltconfig_h, .{});
+        libxslt.installConfigHeader(libxslt_xsltconfig_h);
 
         // See libxslt's Makefile.am for which sources are included.
         const libxslt_cflags: []const []const u8 = &.{
@@ -445,11 +439,8 @@ pub fn build(b: *std.Build) void {
         libexslt.linkLibrary(libxml2);
         libexslt.linkLibrary(libxslt);
 
-        libexslt.addIncludePath(libxslt_upstream.path("libexslt"));
-        libexslt.installHeadersDirectoryOptions(.{
-            .source_dir = libxslt_upstream.path("libexslt"),
-            .install_dir = .header,
-            .install_subdir = "libexslt",
+        libexslt.addIncludePath(libxslt_upstream.path("."));
+        libexslt.installHeadersDirectory(libxslt_upstream.path("libexslt"), "libexslt", .{
             .include_extensions = &.{".h"},
         });
         libexslt.addConfigHeader(libxslt_config_h);
@@ -463,7 +454,7 @@ pub fn build(b: *std.Build) void {
             .WITH_CRYPTO = false,
         });
         libexslt.addConfigHeader(libexslt_exsltconfig_h);
-        libexslt.installConfigHeader(libexslt_exsltconfig_h, .{});
+        libexslt.installConfigHeader(libexslt_exsltconfig_h);
 
         // See libexslt's Makefile.am for which sources are included.
         libexslt.addCSourceFiles(.{

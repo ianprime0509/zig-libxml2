@@ -1,6 +1,6 @@
 .{
-    .name = "zig-libxml2",
-    .version = "0.0.0",
+    .name = "libxml2",
+    .version = "2.12.6-0",
     .paths = .{
         "LICENSE",
         "README.md",

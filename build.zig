@@ -4,15 +4,15 @@ pub const libxml2_version: std.SemanticVersion = .{ .major = 2, .minor = 12, .pa
 pub const libxslt_version: std.SemanticVersion = .{ .major = 1, .minor = 1, .patch = 39 };
 pub const libexslt_version: std.SemanticVersion = .{ .major = 0, .minor = 8, .patch = 21 };
 
-fn versionString(comptime v: std.SemanticVersion) []const u8 {
+inline fn versionString(comptime v: std.SemanticVersion) []const u8 {
     return std.fmt.comptimePrint("{}.{}.{}", .{ v.major, v.minor, v.patch });
 }
 
-fn versionNumber(comptime v: std.SemanticVersion) []const u8 {
+inline fn versionNumber(comptime v: std.SemanticVersion) []const u8 {
     return std.mem.trimLeft(u8, std.fmt.comptimePrint("{}{:0>2}{:0>2}", .{ v.major, v.minor, v.patch }), "0");
 }
 
-fn versionExtra(comptime v: std.SemanticVersion) []const u8 {
+inline fn versionExtra(comptime v: std.SemanticVersion) []const u8 {
     return if (v.pre) |pre| std.fmt.comptimePrint("-{s}", .{pre}) else "";
 }
 
@@ -144,6 +144,7 @@ pub fn build(b: *std.Build) void {
         .HAVE___VA_COPY = true,
         .SUPPORT_IP6 = false,
         .VA_LIST_IS_ARRAY = true,
+        .VERSION = versionString(libxml2_version),
         .XML_SOCKLEN_T = "socklen_t",
         .XML_THREAD_LOCAL = null,
         ._UINT32_T = null,
@@ -369,6 +370,15 @@ pub fn build(b: *std.Build) void {
             .HAVE_VSNPRINTF = true,
             .HAVE_XLOCALE_H = false,
             .HAVE__STAT = false,
+            .LT_OBJDIR = ".libs/",
+            .PACKAGE = "libxslt",
+            .PACKAGE_BUGREPORT = "xml@gnome.org",
+            .PACKAGE_NAME = "libxslt",
+            .PACKAGE_STRING = "libxslt " ++ versionString(libxslt_version),
+            .PACKAGE_TARNAME = "libxslt",
+            .PACKAGE_URL = "https://gitlab.gnome.org/GNOME/libxslt",
+            .PACKAGE_VERSION = versionString(libxslt_version),
+            .VERSION = versionString(libxslt_version),
         });
         libxslt.addConfigHeader(libxslt_config_h);
         const libxslt_xsltconfig_h = b.addConfigHeader(.{
@@ -384,6 +394,7 @@ pub fn build(b: *std.Build) void {
             .WITH_DEBUGGER = with_xslt_debugger,
             .WITH_PROFILER = with_xslt_profiler,
             .WITH_MODULES = with_modules,
+            .LIBXSLT_DEFAULT_PLUGINS_PATH = "",
         });
         libxslt.addConfigHeader(libxslt_xsltconfig_h);
         libxslt.installConfigHeader(libxslt_xsltconfig_h);

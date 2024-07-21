@@ -316,6 +316,14 @@ pub fn build(b: *std.Build) void {
         .flags = libxml2_cflags,
     });
 
+    const xml = b.addModule("xml", .{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = b.path("src/xml.zig"),
+        .link_libc = true,
+    });
+    xml.linkLibrary(libxml2);
+
     if (enable_libxslt) libxslt: {
         const libxslt_upstream = b.lazyDependency("libxslt", .{}) orelse break :libxslt;
 

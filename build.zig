@@ -19,16 +19,19 @@ inline fn versionExtra(comptime v: std.SemanticVersion) []const u8 {
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const preferred_linkage = b.option(
+        std.builtin.LinkMode,
+        "preferred_linkage",
+        "Prefer building statically or dynamically linked libraries (default: static)",
+    ) orelse .static;
 
     const libxml2_upstream = b.dependency("libxml2", .{});
 
-    const libxml2 = b.addStaticLibrary(.{
-        .name = "xml2",
+    const libxml2_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    b.installArtifact(libxml2);
 
     // Options and defaults are the same as they are in libxml2's configure.ac.
     const minimal = b.option(bool, "minimal", "Enable only core features by default") orelse false;
@@ -97,10 +100,7 @@ pub fn build(b: *std.Build) void {
         with_xpath = true;
     }
 
-    libxml2.addIncludePath(libxml2_upstream.path("include"));
-    libxml2.installHeadersDirectory(libxml2_upstream.path("include/libxml"), "libxml", .{
-        .include_extensions = &.{".h"},
-    });
+    libxml2_mod.addIncludePath(libxml2_upstream.path("include"));
     // Using the the CMake version of config.h here is more convenient than
     // trying to figure out all the possible defines Autotools is trying to
     // populate, even though the Autotools build is used as the canonical
@@ -150,7 +150,7 @@ pub fn build(b: *std.Build) void {
         ._UINT32_T = null,
         .uint32_t = null,
     });
-    libxml2.addConfigHeader(libxml2_config_h);
+    libxml2_mod.addConfigHeader(libxml2_config_h);
     const libxml2_xmlversion_h = b.addConfigHeader(.{
         .style = .{ .cmake = libxml2_upstream.path("include/libxml/xmlversion.h.in") },
         .include_path = "libxml/xmlversion.h",
@@ -192,8 +192,7 @@ pub fn build(b: *std.Build) void {
         .WITH_ZLIB = false,
         .WITH_LZMA = false,
     });
-    libxml2.addConfigHeader(libxml2_xmlversion_h);
-    libxml2.installConfigHeader(libxml2_xmlversion_h);
+    libxml2_mod.addConfigHeader(libxml2_xmlversion_h);
 
     // See libxml2's Makefile.am for which sources are included.
     var libxml2_sources = std.ArrayList([]const u8).init(b.allocator);
@@ -282,51 +281,66 @@ pub fn build(b: *std.Build) void {
         "-Wno-long-long",
         "-Wno-format-extra-args",
     };
-    libxml2.addCSourceFiles(.{
+    libxml2_mod.addCSourceFiles(.{
         .root = libxml2_upstream.path("."),
         .files = libxml2_sources.items,
         .flags = libxml2_cflags,
     });
 
-    const xmllint = b.addExecutable(.{
-        .name = "xmllint",
+    const libxml2_lib = b.addLibrary(.{
+        .name = "xml2",
+        .root_module = libxml2_mod,
+        .linkage = preferred_linkage,
+    });
+    libxml2_lib.installHeadersDirectory(libxml2_upstream.path("include/libxml"), "libxml", .{
+        .include_extensions = &.{".h"},
+    });
+    libxml2_lib.installConfigHeader(libxml2_xmlversion_h);
+    b.installArtifact(libxml2_lib);
+
+    const xmllint_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    b.installArtifact(xmllint);
-    xmllint.linkLibrary(libxml2);
-    xmllint.addConfigHeader(libxml2_config_h);
-    xmllint.addCSourceFile(.{
+    xmllint_mod.linkLibrary(libxml2_lib);
+    xmllint_mod.addConfigHeader(libxml2_config_h);
+    xmllint_mod.addCSourceFile(.{
         .file = libxml2_upstream.path("xmllint.c"),
         .flags = libxml2_cflags,
     });
+    const xmllint_exe = b.addExecutable(.{
+        .name = "xmllint",
+        .root_module = xmllint_mod,
+    });
+    b.installArtifact(xmllint_exe);
 
-    const xmlcatalog = b.addExecutable(.{
-        .name = "xmlcatalog",
+    const xmlcatalog_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
-    b.installArtifact(xmlcatalog);
-    xmlcatalog.linkLibrary(libxml2);
-    xmlcatalog.addConfigHeader(libxml2_config_h);
-    xmlcatalog.addCSourceFile(.{
+    xmlcatalog_mod.linkLibrary(libxml2_lib);
+    xmlcatalog_mod.addConfigHeader(libxml2_config_h);
+    xmlcatalog_mod.addCSourceFile(.{
         .file = libxml2_upstream.path("xmlcatalog.c"),
         .flags = libxml2_cflags,
     });
+    const xmlcatalog_exe = b.addExecutable(.{
+        .name = "xmlcatalog",
+        .root_module = xmlcatalog_mod,
+    });
+    b.installArtifact(xmlcatalog_exe);
 
     if (enable_libxslt) libxslt: {
         const libxslt_upstream = b.lazyDependency("libxslt", .{}) orelse break :libxslt;
 
-        const libxslt = b.addStaticLibrary(.{
-            .name = "xslt",
+        const libxslt_mod = b.createModule(.{
             .target = target,
             .optimize = optimize,
             .link_libc = true,
         });
-        b.installArtifact(libxslt);
-        libxslt.linkLibrary(libxml2);
+        libxslt_mod.linkLibrary(libxml2_lib);
 
         // Options and defaults are the same as they are in libxslt's configure.ac.
         // TODO: --with-crypto
@@ -336,10 +350,7 @@ pub fn build(b: *std.Build) void {
         const with_xslt_debugger = b.option(bool, "xslt-debugger", "Enable libxslt debugging support") orelse !minimal;
         const with_xslt_profiler = b.option(bool, "xslt-profiler", "Enable libxslt profiling support") orelse !minimal;
 
-        libxslt.addIncludePath(libxslt_upstream.path("."));
-        libxslt.installHeadersDirectory(libxslt_upstream.path("libxslt"), "libxslt", .{
-            .include_extensions = &.{".h"},
-        });
+        libxslt_mod.addIncludePath(libxslt_upstream.path("."));
         // Using the the CMake version of config.h here is more convenient than
         // trying to figure out all the possible defines Autotools is trying to
         // populate, even though the Autotools build is used as the canonical
@@ -380,7 +391,7 @@ pub fn build(b: *std.Build) void {
             .PACKAGE_VERSION = versionString(libxslt_version),
             .VERSION = versionString(libxslt_version),
         });
-        libxslt.addConfigHeader(libxslt_config_h);
+        libxslt_mod.addConfigHeader(libxslt_config_h);
         const libxslt_xsltconfig_h = b.addConfigHeader(.{
             .style = .{ .cmake = libxslt_upstream.path("libxslt/xsltconfig.h.in") },
             .include_path = "libxslt/xsltconfig.h",
@@ -396,8 +407,7 @@ pub fn build(b: *std.Build) void {
             .WITH_MODULES = with_modules,
             .LIBXSLT_DEFAULT_PLUGINS_PATH = "",
         });
-        libxslt.addConfigHeader(libxslt_xsltconfig_h);
-        libxslt.installConfigHeader(libxslt_xsltconfig_h);
+        libxslt_mod.addConfigHeader(libxslt_xsltconfig_h);
 
         // See libxslt's Makefile.am for which sources are included.
         const libxslt_cflags: []const []const u8 = &.{
@@ -414,7 +424,7 @@ pub fn build(b: *std.Build) void {
             "-Winline",
             "-Wredundant-decls",
         };
-        libxslt.addCSourceFiles(.{
+        libxslt_mod.addCSourceFiles(.{
             .root = libxslt_upstream.path("libxslt"),
             .files = &.{
                 "attrvt.c",
@@ -440,21 +450,27 @@ pub fn build(b: *std.Build) void {
             .flags = libxslt_cflags,
         });
 
-        const libexslt = b.addStaticLibrary(.{
-            .name = "exslt",
+        const libxslt_lib = b.addLibrary(.{
+            .name = "xslt",
+            .root_module = libxslt_mod,
+            .linkage = preferred_linkage,
+        });
+        libxslt_lib.installHeadersDirectory(libxslt_upstream.path("libxslt"), "libxslt", .{
+            .include_extensions = &.{".h"},
+        });
+        libxslt_lib.installConfigHeader(libxslt_xsltconfig_h);
+        b.installArtifact(libxslt_lib);
+
+        const libexslt_mod = b.createModule(.{
             .target = target,
             .optimize = optimize,
             .link_libc = true,
         });
-        b.installArtifact(libexslt);
-        libexslt.linkLibrary(libxml2);
-        libexslt.linkLibrary(libxslt);
+        libexslt_mod.linkLibrary(libxml2_lib);
+        libexslt_mod.linkLibrary(libxslt_lib);
 
-        libexslt.addIncludePath(libxslt_upstream.path("."));
-        libexslt.installHeadersDirectory(libxslt_upstream.path("libexslt"), "libexslt", .{
-            .include_extensions = &.{".h"},
-        });
-        libexslt.addConfigHeader(libxslt_config_h);
+        libexslt_mod.addIncludePath(libxslt_upstream.path("."));
+        libexslt_mod.addConfigHeader(libxslt_config_h);
         const libexslt_exsltconfig_h = b.addConfigHeader(.{
             .style = .{ .cmake = libxslt_upstream.path("libexslt/exsltconfig.h.in") },
             .include_path = "libexslt/exsltconfig.h",
@@ -464,11 +480,10 @@ pub fn build(b: *std.Build) void {
             .LIBEXSLT_VERSION_EXTRA = versionExtra(libexslt_version),
             .WITH_CRYPTO = false,
         });
-        libexslt.addConfigHeader(libexslt_exsltconfig_h);
-        libexslt.installConfigHeader(libexslt_exsltconfig_h);
+        libexslt_mod.addConfigHeader(libexslt_exsltconfig_h);
 
         // See libexslt's Makefile.am for which sources are included.
-        libexslt.addCSourceFiles(.{
+        libexslt_mod.addCSourceFiles(.{
             .root = libxslt_upstream.path("libexslt"),
             .files = &.{
                 "exslt.c",
@@ -485,20 +500,35 @@ pub fn build(b: *std.Build) void {
             .flags = libxslt_cflags,
         });
 
-        const xsltproc = b.addExecutable(.{
-            .name = "xsltproc",
+        const libexslt_lib = b.addLibrary(.{
+            .name = "exslt",
+            .root_module = libexslt_mod,
+            .linkage = preferred_linkage,
+        });
+        b.installArtifact(libexslt_lib);
+        libexslt_lib.installHeadersDirectory(libxslt_upstream.path("libexslt"), "libexslt", .{
+            .include_extensions = &.{".h"},
+        });
+        libexslt_lib.installConfigHeader(libexslt_exsltconfig_h);
+
+        const xsltproc_mod = b.createModule(.{
             .target = target,
             .optimize = optimize,
             .link_libc = true,
         });
-        b.installArtifact(xsltproc);
-        xsltproc.linkLibrary(libxml2);
-        xsltproc.linkLibrary(libxslt);
-        xsltproc.linkLibrary(libexslt);
-        xsltproc.addConfigHeader(libxslt_config_h);
-        xsltproc.addCSourceFile(.{
+        xsltproc_mod.linkLibrary(libxml2_lib);
+        xsltproc_mod.linkLibrary(libxslt_lib);
+        xsltproc_mod.linkLibrary(libexslt_lib);
+        xsltproc_mod.addConfigHeader(libxslt_config_h);
+        xsltproc_mod.addCSourceFile(.{
             .file = libxslt_upstream.path("xsltproc/xsltproc.c"),
             .flags = libxslt_cflags,
         });
+
+        const xsltproc_exe = b.addExecutable(.{
+            .name = "xsltproc",
+            .root_module = xsltproc_mod,
+        });
+        b.installArtifact(xsltproc_exe);
     }
 }

@@ -1,6 +1,8 @@
 .{
-    .name = "libxml2",
+    .name = .libxml2,
     .version = "2.12.6-0",
+    .fingerprint = 0xf268267b41b6ebfe, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
     .paths = .{
         "LICENSE",
         "README.md",
@@ -10,11 +12,11 @@
     .dependencies = .{
         .libxml2 = .{
             .url = "https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.12.6/libxml2-v2.12.6.tar.gz",
-            .hash = "1220aa400cd479a884390db9cf4a09c03899e5b370a5ab35614ac735834a27f3286d",
+            .hash = "N-V-__8AAM33oQGqQAzUeaiEOQ25z0oJwDiZ5bNwpas1YUrH",
         },
         .libxslt = .{
             .url = "https://gitlab.gnome.org/GNOME/libxslt/-/archive/v1.1.39/libxslt-v1.1.39.tar.gz",
-            .hash = "12201415880e4a93f167de007d131b64283cdd95ddb05aebd25595cf74ce9a14d0b0",
+            .hash = "N-V-__8AAJWI-wAUFYgOSpPxZ94AfRMbZCg83ZXdsFrr0lWV",
             .lazy = true,
         },
     },

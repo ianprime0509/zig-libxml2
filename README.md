@@ -3,7 +3,7 @@
 This project is a wrapper around
 [libxml2](https://gitlab.gnome.org/GNOME/libxml2) and
 [libxslt](https://gitlab.gnome.org/GNOME/libxslt) to build them using the Zig
-build system. It supports Zig 0.14.0 and the latest master (at the time of
+build system. It supports Zig 0.14, 0.15, and the latest master (at the time of
 writing).
 
 By default, only libxml2 is fetched and built. To include libxslt as well, pass

@@ -195,8 +195,8 @@ pub fn build(b: *std.Build) void {
     libxml2_mod.addConfigHeader(libxml2_xmlversion_h);
 
     // See libxml2's Makefile.am for which sources are included.
-    var libxml2_sources = std.ArrayList([]const u8).init(b.allocator);
-    libxml2_sources.appendSlice(&.{
+    var libxml2_sources: std.ArrayListUnmanaged([]const u8) = .{};
+    libxml2_sources.appendSlice(b.allocator, &.{
         "buf.c",
         "chvalid.c",
         "dict.c",
@@ -218,55 +218,55 @@ pub fn build(b: *std.Build) void {
         "xmlstring.c",
     }) catch @panic("OOM");
     if (with_c14n) {
-        libxml2_sources.append("c14n.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "c14n.c") catch @panic("OOM");
     }
     if (with_catalog) {
-        libxml2_sources.append("catalog.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "catalog.c") catch @panic("OOM");
     }
     if (with_debug) {
-        libxml2_sources.append("debugXML.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "debugXML.c") catch @panic("OOM");
     }
     if (with_ftp) {
-        libxml2_sources.append("nanoftp.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "nanoftp.c") catch @panic("OOM");
     }
     if (with_html) {
-        libxml2_sources.appendSlice(&.{ "HTMLparser.c", "HTMLtree.c" }) catch @panic("OOM");
+        libxml2_sources.appendSlice(b.allocator, &.{ "HTMLparser.c", "HTMLtree.c" }) catch @panic("OOM");
     }
     if (with_http) {
-        libxml2_sources.append("nanohttp.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "nanohttp.c") catch @panic("OOM");
     }
     if (with_modules) {
-        libxml2_sources.append("xmlmodule.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xmlmodule.c") catch @panic("OOM");
     }
     if (with_output) {
-        libxml2_sources.append("xmlsave.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xmlsave.c") catch @panic("OOM");
     }
     if (with_pattern) {
-        libxml2_sources.append("pattern.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "pattern.c") catch @panic("OOM");
     }
     if (with_reader) {
-        libxml2_sources.append("xmlreader.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xmlreader.c") catch @panic("OOM");
     }
     if (with_regexps) {
-        libxml2_sources.appendSlice(&.{ "xmlregexp.c", "xmlunicode.c" }) catch @panic("OOM");
+        libxml2_sources.appendSlice(b.allocator, &.{ "xmlregexp.c", "xmlunicode.c" }) catch @panic("OOM");
     }
     if (with_schemas) {
-        libxml2_sources.appendSlice(&.{ "relaxng.c", "xmlschemas.c", "xmlschemastypes.c" }) catch @panic("OOM");
+        libxml2_sources.appendSlice(b.allocator, &.{ "relaxng.c", "xmlschemas.c", "xmlschemastypes.c" }) catch @panic("OOM");
     }
     if (with_schematron) {
-        libxml2_sources.append("schematron.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "schematron.c") catch @panic("OOM");
     }
     if (with_writer) {
-        libxml2_sources.append("xmlwriter.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xmlwriter.c") catch @panic("OOM");
     }
     if (with_xinclude) {
-        libxml2_sources.append("xinclude.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xinclude.c") catch @panic("OOM");
     }
     if (with_xpath or with_schemas) {
-        libxml2_sources.append("xpath.c") catch @panic("OOM");
+        libxml2_sources.append(b.allocator, "xpath.c") catch @panic("OOM");
     }
     if (with_xptr) {
-        libxml2_sources.appendSlice(&.{ "xlink.c", "xpointer.c" }) catch @panic("OOM");
+        libxml2_sources.appendSlice(b.allocator, &.{ "xlink.c", "xpointer.c" }) catch @panic("OOM");
     }
     const libxml2_cflags: []const []const u8 = &.{
         "-pedantic",

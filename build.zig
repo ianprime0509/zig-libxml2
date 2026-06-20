@@ -9,7 +9,7 @@ inline fn versionString(comptime v: std.SemanticVersion) []const u8 {
 }
 
 inline fn versionNumber(comptime v: std.SemanticVersion) []const u8 {
-    return std.mem.trimLeft(u8, std.fmt.comptimePrint("{}{:0>2}{:0>2}", .{ v.major, v.minor, v.patch }), "0");
+    return std.mem.trimStart(u8, std.fmt.comptimePrint("{}{:0>2}{:0>2}", .{ v.major, v.minor, v.patch }), "0");
 }
 
 inline fn versionExtra(comptime v: std.SemanticVersion) []const u8 {
@@ -136,7 +136,6 @@ pub fn build(b: *std.Build) void {
         .HAVE_SYS_SELECT_H = true,
         .HAVE_SYS_SOCKET_H = true,
         .HAVE_SYS_STAT_H = true,
-        .HAVE_SYS_TIMER_H = true,
         .HAVE_SYS_TIME_H = true,
         .HAVE_UNISTD_H = true,
         .HAVE_VA_COPY = true,
@@ -195,7 +194,7 @@ pub fn build(b: *std.Build) void {
     libxml2_mod.addConfigHeader(libxml2_xmlversion_h);
 
     // See libxml2's Makefile.am for which sources are included.
-    var libxml2_sources: std.ArrayListUnmanaged([]const u8) = .{};
+    var libxml2_sources: std.ArrayList([]const u8) = .empty;
     libxml2_sources.appendSlice(b.allocator, &.{
         "buf.c",
         "chvalid.c",
